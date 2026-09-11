@@ -1,0 +1,28 @@
+Musterfirma GmbH
+Hauptstraße 1
+10115 Berlin
+
+Herr
+Max Mustermann
+Beispielweg 12
+12345 Musterstadt
+
+Sehr geehrter Herr Mustermann,
+
+vielen Dank fuer Ihren Auftrag.
+
+Rechnung Nr. 2024-00147            Datum: 01.03.2024
+
+Kundennummer:        123456789
+Vertragsnummer:      987-654-321
+IBAN:                DE89 3704 0044 0532 0130 00
+Mandatsreferenz:     MREF-000111222
+Telefon:             030 / 1234567
+Service-Hotline:     0800 1234567
+E-Mail:              max.mustermann@example.com
+
+Unsere Bankverbindung: DE12 5001 0517 0648 4898 90
+Glaeubiger-ID:          DE98ZZZ09999999999
+USt-IdNr.:              DE123456789
+
+Gesamtbetrag:  123,45 EUR
