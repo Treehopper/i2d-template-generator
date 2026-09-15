@@ -16,10 +16,11 @@ backend), and the `i2d-pseudo` CLI as its entrypoint.
 docker pull ghcr.io/treehopper/i2d-template-generator:latest
 ```
 
-Images are also tagged by branch (`:develop`), by short commit SHA (`:sha-xxxxxxx`), and by
-version for tagged releases (`:1.2.3`, `:1.2`). If `docker pull` reports "unauthorized" or
-"not found", the package on GHCR may still be private — either `docker login ghcr.io` with a
-token that has read access, or make the package public from the repository's **Packages** tab.
+Images are multi-arch (`linux/amd64` and `linux/arm64`, e.g. Apple Silicon), and are also
+tagged by branch (`:develop`), by short commit SHA (`:sha-xxxxxxx`), and by version for tagged
+releases (`:1.2.3`, `:1.2`). If `docker pull` reports "unauthorized" or "not found", the
+package on GHCR may still be private — either `docker login ghcr.io` with a token that has
+read access, or make the package public from the repository's **Packages** tab.
 
 Alternatively, build it yourself from a checkout of this repo:
 
