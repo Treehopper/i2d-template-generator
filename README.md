@@ -62,13 +62,16 @@ cd path/to/your/samples
 mkdir -p templates
 docker run --rm -it -v "$PWD":/data --entrypoint invoice2data \
   ghcr.io/treehopper/i2d-template-generator:latest \
-  --new-template invoice.pdf --template-out templates/vendor.yml
+  --new-template invoice.pdf -i pdftotext --interactive --template-out templates/vendor.yml
 ```
 
 This is deterministic and fully offline (no AI, no network) — it prints the drafted template
-and a preview of what each field captures, then asks before writing `templates/vendor.yml`.
-Add `--interactive` to review/edit/drop each field, or `-i pdftotext` to pin the input backend
-(recommended — see [CLAUDE.md](CLAUDE.md)'s invoice2data notes on why).
+and a preview of what each field captures, walks you through reviewing/editing/dropping each
+field (`--interactive`), then asks before writing `templates/vendor.yml`. `-i pdftotext` pins
+the input backend so the template is generated and later run against the same text layout (see
+[CLAUDE.md](CLAUDE.md)'s invoice2data notes on why) — swap in another backend (e.g. `-i pdfium`)
+if `pdftotext` doesn't extract your PDFs well, or drop `--interactive` for a quicker,
+non-interactive draft.
 
 ### 2. Extract with the drafted template
 
