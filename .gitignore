@@ -11,4 +11,6 @@ samples/
 *.anon.txt
 pseudonyms*.yml
 draft-template*.yml
+templates/
+extracted*
 .env

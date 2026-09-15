@@ -5,6 +5,13 @@ Drafts [invoice2data](https://github.com/invoice-x/invoice2data) templates with 
 the model only ever sees fake values in the original format. See [CLAUDE.md](CLAUDE.md) for
 the full design and privacy contract.
 
+This repo ships a synthetic example invoice, [`examples/musterfirma-invoice.pdf`](examples/musterfirma-invoice.pdf)
+— fake vendor, fake customer, fake everything (`Muster-` is the standard German placeholder,
+the equivalent of "John Doe") — so every command below runs as-is right after cloning, no
+invoices of your own required yet. Once you're working with real invoices, create a `samples/`
+directory instead (already gitignored — see [CLAUDE.md](CLAUDE.md)'s privacy rules) and run the
+same commands there.
+
 ## Workflow
 
 Reach for an AI model only when invoice2data's own deterministic template drafting isn't good
@@ -49,20 +56,24 @@ Alternatively, build it yourself from a checkout of this repo:
 docker build -t i2d-pseudo .
 ```
 
-All the commands below mount the directory holding your sample invoices (and where templates,
-the pseudonym store, and output land) at `/data` — nothing else is writable, and nothing from
+All the commands below mount a directory holding sample invoices (and where templates, the
+pseudonym store, and output land) at `/data` — nothing else is writable, and nothing from
 `/data` is ever baked into the image. Run them from inside that directory so filenames line up
-on both sides of the mount. Locally (no Docker), drop the `docker run ...` wrapper and run the
-same flags with `uv run invoice2data ...` / `uv run i2d-pseudo ...` instead.
+on both sides of the mount; they use the bundled `examples/` directory so they work right after
+cloning — swap in your own `samples/` directory (gitignored) and `musterfirma-invoice.pdf` for
+your own PDF's filename once you're working with real invoices. Locally (no Docker), drop the
+`docker run ...` wrapper and run the same flags with `uv run invoice2data ...` /
+`uv run i2d-pseudo ...` instead.
 
 ### 1. Draft a template with invoice2data's heuristics
 
 ```bash
-cd path/to/your/samples
+cd examples
 mkdir -p templates
 docker run --rm -it -v "$PWD":/data --entrypoint invoice2data \
   ghcr.io/treehopper/i2d-template-generator:latest \
-  --new-template invoice.pdf -i pdftotext --interactive --template-out templates/vendor.yml
+  --new-template musterfirma-invoice.pdf -i pdftotext --interactive \
+  --template-out templates/vendor.yml
 ```
 
 This is deterministic and fully offline (no AI, no network) — it prints the drafted template
@@ -79,7 +90,7 @@ non-interactive draft.
 docker run --rm -v "$PWD":/data --entrypoint invoice2data \
   ghcr.io/treehopper/i2d-template-generator:latest \
   --template-folder templates --exclude-built-in-templates \
-  -f json -o extracted invoice.pdf
+  -f json -o extracted musterfirma-invoice.pdf
 cat extracted.json
 ```
 
@@ -140,7 +151,7 @@ AI-drafted) into `templates/`:
 docker run --rm -v "$PWD":/data --entrypoint invoice2data \
   ghcr.io/treehopper/i2d-template-generator:latest \
   --template-folder templates --exclude-built-in-templates \
-  -f json -o extracted invoice.pdf
+  -f json -o extracted musterfirma-invoice.pdf
 cat extracted.json
 ```
 
