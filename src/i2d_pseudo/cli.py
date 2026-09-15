@@ -12,6 +12,7 @@ prompting the user, and writing the ``.anon.txt`` / draft-template files.
 from __future__ import annotations
 
 import argparse
+import os
 import random
 import sys
 from collections.abc import Callable, Sequence
@@ -30,6 +31,12 @@ from . import suggest as suggest_mod
 from .store import StoreEntry
 
 AskFn = Callable[[str, bool], bool]
+
+#: Env var controlling the default data directory (see --data-dir).
+DATA_DIR_ENV_VAR = "I2D_DATA_DIR"
+#: Matches the Docker image's WORKDIR, so a bare `docker run` (no args, no
+#: --data-dir, no env var) just works against whatever is mounted there.
+DEFAULT_DATA_DIR = Path("/data")
 
 
 def _ask_stdin(prompt: str, default: bool) -> bool:
@@ -57,17 +64,37 @@ def build_parser() -> argparse.ArgumentParser:
             "personal data before any of it reaches an AI provider."
         ),
     )
-    parser.add_argument("pdfs", nargs="+", type=Path, help="sample invoice PDFs")
+    parser.add_argument(
+        "pdfs",
+        nargs="*",
+        type=Path,
+        help="sample invoice PDFs (default: every *.pdf found in --data-dir)",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=Path(os.environ.get(DATA_DIR_ENV_VAR, str(DEFAULT_DATA_DIR))),
+        help=(
+            "base directory to look for *.pdf in when no pdfs are given, and to default "
+            f"--store/--out into (env: {DATA_DIR_ENV_VAR}, default: {DEFAULT_DATA_DIR})"
+        ),
+    )
     parser.add_argument(
         "--backend",
         default=extract_mod.DEFAULT_BACKEND,
         help=f"invoice2data input backend to pin (default: {extract_mod.DEFAULT_BACKEND})",
     )
     parser.add_argument(
-        "--store", type=Path, default=Path("pseudonyms.yml"), help="pseudonym store file"
+        "--store",
+        type=Path,
+        default=None,
+        help="pseudonym store file (default: <data-dir>/pseudonyms.yml)",
     )
     parser.add_argument(
-        "--out", type=Path, default=Path("draft-template.yml"), help="draft template output file"
+        "--out",
+        type=Path,
+        default=None,
+        help="draft template output file (default: <data-dir>/draft-template.yml)",
     )
     parser.add_argument(
         "--no-ai", action="store_true", help="stop after writing .anon.txt, skip the AI draft"
@@ -81,11 +108,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run(
-    pdf_paths: Sequence[Path],
+    pdf_paths: Sequence[Path] | None = None,
     *,
+    data_dir: Path = DEFAULT_DATA_DIR,
     backend: str,
-    store_path: Path,
-    out_path: Path,
+    store_path: Path | None = None,
+    out_path: Path | None = None,
     no_ai: bool,
     use_defaults: bool,
     ask: AskFn = _ask_stdin,
@@ -96,10 +124,15 @@ def run(
     """Run the full pseudonymize-and-draft workflow.
 
     Args:
-        pdf_paths (Sequence[Path]): Sample invoice PDFs.
+        pdf_paths (Sequence[Path] | None): Sample invoice PDFs; when None or
+            empty, every ``*.pdf`` found directly under ``data_dir`` is used.
+        data_dir (Path): Base directory for the default ``pdf_paths`` glob and
+            for defaulting ``store_path``/``out_path``.
         backend (str): invoice2data input backend to pin.
-        store_path (Path): Pseudonym store file.
-        out_path (Path): Draft template output file.
+        store_path (Path | None): Pseudonym store file; defaults to
+            ``data_dir / "pseudonyms.yml"``.
+        out_path (Path | None): Draft template output file; defaults to
+            ``data_dir / "draft-template.yml"``.
         no_ai (bool): Stop after writing ``.anon.txt``.
         use_defaults (bool): Accept every suggested decision and skip the
             AI-call confirmation.
@@ -110,9 +143,22 @@ def run(
         provider (AIProvider | None): AI provider to use; the configured one
             (env-resolved) when None.
         stdout (TextIO): Where to print progress; overridable for tests.
+
+    Raises:
+        SystemExit: No ``pdf_paths`` were given and no ``*.pdf`` was found
+            under ``data_dir``.
     """
+    resolved_pdfs = list(pdf_paths) if pdf_paths else sorted(data_dir.glob("*.pdf"))
+    if not resolved_pdfs:
+        raise SystemExit(
+            f"i2d-pseudo: no PDF files found in {data_dir} (looked for *.pdf); pass paths "
+            f"explicitly or set {DATA_DIR_ENV_VAR}"
+        )
+    store_path = store_path if store_path is not None else data_dir / "pseudonyms.yml"
+    out_path = out_path if out_path is not None else data_dir / "draft-template.yml"
+
     rng = rng or random.Random()
-    documents = {str(p): extract_mod.extract_text(p, backend=backend) for p in pdf_paths}
+    documents = {str(p): extract_mod.extract_text(p, backend=backend) for p in resolved_pdfs}
 
     store = store_mod.load_store(store_path)
     for candidate in candidates_mod.find_candidates(documents):
@@ -157,7 +203,7 @@ def run(
             print("aborted before AI call", file=stdout)
             return
 
-    first_doc = str(pdf_paths[0])
+    first_doc = str(resolved_pdfs[0])
     draft = generate_mod.draft_template(safe_texts[first_doc], provider=provider)
     draft = generate_mod.drop_pseudonym_dependent(draft, store)
     draft = generate_mod.keep_matching_all(draft, documents.values())
@@ -183,6 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     run(
         args.pdfs,
+        data_dir=args.data_dir,
         backend=args.backend,
         store_path=args.store,
         out_path=args.out,

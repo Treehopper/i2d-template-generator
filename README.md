@@ -32,36 +32,46 @@ docker build -t i2d-pseudo .
 
 Sample PDFs, the pseudonym store, and the generated draft template all live under `/data` in
 the container — nothing else is writable, and nothing from `/data` is ever baked into the
-image. Mount the directory that holds your sample invoices there, then run from inside it so
-filenames line up on both sides of the mount:
+image. Mount the directory that holds your sample invoices there and run the image as-is —
+with no PDFs given on the command line, it processes every `*.pdf` it finds in `/data`:
 
 ```bash
-cd path/to/your/samples
-docker run --rm -it -v "$PWD":/data ghcr.io/treehopper/i2d-template-generator:latest *.pdf
+docker run --rm -it -v "$PWD/samples":/data ghcr.io/treehopper/i2d-template-generator:latest
 ```
 
 This extracts text, finds personal-data candidates, and prompts you interactively to
 replace/keep each one (`-it` is required for the prompts) before asking to confirm the AI
-call. `pseudonyms.yml`, `*.anon.txt`, and `draft-template.yml` are written back into the
-mounted directory, owned by the container's `i2d` user (uid 1000) — add
-`--user "$(id -u):$(id -g)"` to the `docker run` command if you'd rather they were owned by
-your host user.
+call. `pseudonyms.yml`, `*.anon.txt`, and `draft-template.yml` are written back into `/data`
+too, owned by the container's `i2d` user (uid 1000) — add `--user "$(id -u):$(id -g)"` to the
+`docker run` command if you'd rather they were owned by your host user.
 
-Useful flags (see `docker run --rm ghcr.io/treehopper/i2d-template-generator:latest --help`):
+To point at a different mount path instead of `/data`, set `I2D_DATA_DIR` (or pass
+`--data-dir`) — it controls where the default `*.pdf` glob looks and where `pseudonyms.yml`/
+`draft-template.yml` default to:
+
+```bash
+docker run --rm -it -v "$PWD/samples":/invoices \
+  -e I2D_DATA_DIR=/invoices \
+  ghcr.io/treehopper/i2d-template-generator:latest
+```
+
+Useful flags (see `docker run --rm ghcr.io/treehopper/i2d-template-generator:latest --help`);
+explicit PDF paths (relative to `/data`) still work wherever you'd rather not process
+everything found there:
 
 ```bash
 # Stop after pseudonymizing, before any AI call — inspect *.anon.txt yourself first.
-docker run --rm -it -v "$PWD":/data ghcr.io/treehopper/i2d-template-generator:latest \
-  --no-ai *.pdf
+docker run --rm -it -v "$PWD/samples":/data ghcr.io/treehopper/i2d-template-generator:latest \
+  --no-ai
 
 # Non-interactive: accept every suggested keep/replace decision and skip the AI-call
 # confirmation (decisions already in pseudonyms.yml from a prior run are always reused).
-docker run --rm -v "$PWD":/data ghcr.io/treehopper/i2d-template-generator:latest \
-  --defaults *.pdf
+docker run --rm -v "$PWD/samples":/data ghcr.io/treehopper/i2d-template-generator:latest \
+  --defaults
 
-# Custom store/output locations, and pinning a non-default input backend.
-docker run --rm -it -v "$PWD":/data ghcr.io/treehopper/i2d-template-generator:latest \
-  --store my-pseudonyms.yml --out my-draft-template.yml --backend pdfium *.pdf
+# Only this one invoice, with custom store/output locations and a non-default input backend.
+docker run --rm -it -v "$PWD/samples":/data ghcr.io/treehopper/i2d-template-generator:latest \
+  --store my-pseudonyms.yml --out my-draft-template.yml --backend pdfium one-invoice.pdf
 ```
 
 By default the AI provider is `mock` (no network call at all). To use a real provider, pass
@@ -69,11 +79,11 @@ its configuration as environment variables — the API key never needs to be bak
 image or the repo:
 
 ```bash
-docker run --rm -it -v "$PWD":/data \
+docker run --rm -it -v "$PWD/samples":/data \
   -e INVOICE2DATA_AI_PROVIDER=openai \
   -e INVOICE2DATA_AI_MODEL=gpt-4o-mini \
   -e INVOICE2DATA_AI_API_KEY="$OPENAI_API_KEY" \
-  ghcr.io/treehopper/i2d-template-generator:latest *.pdf
+  ghcr.io/treehopper/i2d-template-generator:latest
 ```
 
 Only pseudonymized text (verified leak-free) is ever sent to a configured provider — see

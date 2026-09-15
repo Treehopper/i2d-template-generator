@@ -30,9 +30,11 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Samples, the pseudonym store, and draft templates are expected to live on a
 # mounted volume -- never baked into the image (see CLAUDE.md's privacy rules
-# and .gitignore).
+# and .gitignore). I2D_DATA_DIR/--data-dir can point elsewhere at runtime;
+# this just matches the CLI's own default so a bare `docker run` (no extra
+# args, no flags) already works against whatever is mounted at /data.
+ENV I2D_DATA_DIR=/data
 WORKDIR /data
 USER i2d
 
 ENTRYPOINT ["i2d-pseudo"]
-CMD ["--help"]
